@@ -7,43 +7,81 @@ using PriceWebApi.Repositories.IRepositories;
 
 namespace PriceWebApi.Repositories
 {
-    public class StoreLocationRepository : IStoreLocationRepository, IRepository<StoreLocation>
+    public class StoreLocationRepository : IStoreLocationRepository
     {
-        private readonly AppDbContext _dbContext;
-        public StoreLocationRepository(AppDbContext dbContext)
+        private readonly IDbContextFactory<AppDbContext> _dbContextFactory;
+        public StoreLocationRepository(IDbContextFactory<AppDbContext> dbContextFactory)
         {
-            _dbContext = dbContext;
+            _dbContextFactory = dbContextFactory;
         }
-        public async Task<List<StoreLocationDTO>> GetListOnFilterAndPageAsync(Expression<Func<StoreLocation, bool>> filter = null, int pageNumber = 0, int pageSize = 3)
+        public async Task<List<StoreLocationDTO>> GetListOnFilterAndPageAsync(
+            Expression<Func<StoreLocation, bool>> locationFilter = null,
+            int pageNumber = 0,
+            int pageSize = 10)
         {
-            IQueryable<StoreLocation> products = _dbContext.StoreLocations
-                .Include(x => x.Stores)
-                .ThenInclude(x => x.Products)
-                .ThenInclude(x => x.Categories)
-                .ThenInclude(x => x.Category);
+            await using var context = await _dbContextFactory.CreateDbContextAsync();
 
-            if (filter != null)
-            {
-                products = products.Where(filter);
-            }
-
-            return await products.Select(l => new StoreLocationDTO
-            {
-                Id = l.Id,
-                City = l.City,
-                District = l.District,
-                Address = l.Address,
-                PostalCode = l.PostalCode,
-                Stores = l.Stores.Select(s => new StoreDTO
+            var storesInArea = await context.StoreLocations
+                .Where(locationFilter)
+                .Select(l => new
                 {
-                    Id = s.Id,
-                    Name = s.Name,
-                    Products = s.Products
-                        .OrderBy(p => p.WasDiscount ? 0 : 1)
-                        // .ThenByDescending(p => p.DiscountPercentage)
-                        .Skip(pageNumber * pageSize)
-                        .Take(pageSize)
-                        .Select(p => new ProductDTO
+                    LocationId = l.Id,
+                    City = l.City,
+                    District = l.District,
+                    Address = l.Address,
+                    PostalCode = l.PostalCode,
+                    Stores = l.Stores.Select(s => new
+                    {
+                        StoreId = s.Id,
+                        StoreName = s.Name
+                    }).ToList()
+                }).ToListAsync();
+
+            if (!storesInArea.Any())
+                return new List<StoreLocationDTO>();
+
+            var storeIds = storesInArea
+                .SelectMany(l => l.Stores)
+                .Select(s => s.StoreId)
+                .ToList();
+
+            var productTasks = storeIds.Select(async storeId =>
+           {
+               await using var context = await _dbContextFactory.CreateDbContextAsync();
+
+               var products = await context.Products
+                   .Include(p => p.Categories)
+                       .ThenInclude(c => c.Category)
+                   .Where(p => p.StoreId == storeId)
+                   .OrderBy(p => p.WasDiscount ? 0 : 1)
+                   .Skip(pageNumber * pageSize)
+                   .Take(pageSize)
+                   .AsNoTracking()
+                   .ToListAsync();
+
+               return new { StoreId = storeId, Products = products };
+           }).ToList();
+
+            var results = await Task.WhenAll(productTasks);
+
+            var productsByStore = results
+                .Where(r => r.Products.Any())
+                .ToDictionary(r => r.StoreId, r => r.Products);
+
+            var result = storesInArea.Select(location => new StoreLocationDTO
+            {
+                Id = location.LocationId,
+                City = location.City,
+                District = location.District,
+                Address = location.Address,
+                PostalCode = location.PostalCode,
+                ProductCount = productsByStore.Values.Sum(p => p.Count),
+                Stores = location.Stores.Select(store => new StoreDTO
+                {
+                    Id = store.StoreId,
+                    Name = store.StoreName,
+                    Products = productsByStore.ContainsKey(store.StoreId)
+                        ? productsByStore[store.StoreId].Select(p => new ProductDTO
                         {
                             Id = p.Id,
                             Brand = p.Brand,
@@ -69,42 +107,96 @@ namespace PriceWebApi.Repositories
                                 Name = c.Category.Name
                             }).ToList(),
                         }).ToList()
+                        : new List<ProductDTO>()
                 }).ToList()
-            }).AsNoTracking().ToListAsync();
-                
+            }).ToList();
+            System.Console.WriteLine(productsByStore.Values.Sum(p => p.Count));
+            return result;
         }
-        public async Task<List<StoreLocationDTO>> GetListWithFilterAsync(Expression<Func<StoreLocation, bool>> locationFilter = null, Expression<Func<Product, bool>> productFilter = null, int pageNumber = 0, int pageSize = 10)
+
+        public async Task<List<StoreLocationDTO>> GetListWithFilterAsync(
+            Expression<Func<StoreLocation, bool>> locationFilter = null,
+            Expression<Func<Product, bool>> productFilter = null,
+            string sortBy = null,
+            int pageNumber = 0,
+            int pageSize = 10)
         {
-            IQueryable<StoreLocation> products = _dbContext.StoreLocations
-                .Include(x => x.Stores)
-                .ThenInclude(x => x.Products)
-                .ThenInclude(x => x.Categories)
-                .ThenInclude(x => x.Category);
+            await using var context = await _dbContextFactory.CreateDbContextAsync();
 
-            if (locationFilter != null)
-            {
-                products = products.Where(locationFilter);
-            }
-
-            return await products.Select(l => new StoreLocationDTO
-            {
-                Id = l.Id,
-                City = l.City,
-                District = l.District,
-                Address = l.Address,
-                PostalCode = l.PostalCode,
-                Stores = l.Stores.Select(s => new StoreDTO
+            var storesInArea = await context.StoreLocations
+                .Where(locationFilter)
+                .Select(l => new
                 {
-                    Id = s.Id,
-                    Name = s.Name,
-                    Products = s.Products
-                        .AsQueryable()
-                        .Where(productFilter ?? (p => true))
-                        .OrderBy(p => p.WasDiscount ? 0 : 1)
-                        // .ThenByDescending(p => p.DiscountPercentage)
-                        .Skip(pageNumber * pageSize)
-                        .Take(pageSize)
-                        .Select(p => new ProductDTO
+                    LocationId = l.Id,
+                    City = l.City,
+                    District = l.District,
+                    Address = l.Address,
+                    PostalCode = l.PostalCode,
+                    Stores = l.Stores.Select(s => new
+                    {
+                        StoreId = s.Id,
+                        StoreName = s.Name
+                    }).ToList()
+                }).ToListAsync();
+
+            if (!storesInArea.Any())
+                return new List<StoreLocationDTO>();
+
+            var storeIds = storesInArea
+                .SelectMany(l => l.Stores)
+                .Select(s => s.StoreId)
+                .ToList();
+
+            var productTasks = storeIds.Select(async storeId =>
+            {
+                await using var context = await _dbContextFactory.CreateDbContextAsync();
+
+                var query = context.Products
+                    .Include(p => p.Categories)
+                        .ThenInclude(c => c.Category)
+                    .Where(p => p.StoreId == storeId)
+                    .Where(productFilter); // Check if there is index on Category in DB
+
+                query = sortBy?.ToLowerInvariant() switch
+                {
+                    "lowprice" => query.OrderBy(p => p.CurrentPrice),
+                    "highprice" => query.OrderByDescending(p => p.CurrentPrice),
+                    "lowcompareprice" => query.OrderBy(p => p.CurrentComparePrice),
+                    "highcompareprice" => query.OrderByDescending(p => p.CurrentComparePrice),
+                    "discountcompareprice" => query.OrderBy(p => p.WasDiscount ? 0 : 1).ThenBy(p => p.CurrentComparePrice),
+                    "discountpercentage" => query.OrderByDescending(p => p.DiscountPercentage),
+                    _ => query.OrderBy(p => p.WasDiscount ? 0 : 1).ThenBy(p => p.CurrentPrice)
+                };
+
+                var products = await query
+                    .Skip(pageNumber * pageSize)
+                    .Take(pageSize)
+                    .AsNoTracking()
+                    .ToListAsync();
+
+                return new { StoreId = storeId, Products = products };
+            }).ToList();
+
+            var results = await Task.WhenAll(productTasks);
+
+            var productsByStore = results
+                .Where(r => r.Products.Any())
+                .ToDictionary(r => r.StoreId, r => r.Products);
+
+            var result = storesInArea.Select(location => new StoreLocationDTO
+            {
+                Id = location.LocationId,
+                City = location.City,
+                District = location.District,
+                Address = location.Address,
+                PostalCode = location.PostalCode,
+                ProductCount = productsByStore.Values.Sum(p => p.Count),
+                Stores = location.Stores.Select(store => new StoreDTO
+                {
+                    Id = store.StoreId,
+                    Name = store.StoreName,
+                    Products = productsByStore.ContainsKey(store.StoreId)
+                        ? productsByStore[store.StoreId].Select(p => new ProductDTO
                         {
                             Id = p.Id,
                             Brand = p.Brand,
@@ -130,39 +222,130 @@ namespace PriceWebApi.Repositories
                                 Name = c.Category.Name
                             }).ToList(),
                         }).ToList()
+                        : new List<ProductDTO>()
                 }).ToList()
-            }).AsNoTracking().ToListAsync();
+            }).ToList();
+            System.Console.WriteLine(productsByStore.Values.Sum(p => p.Count));
+            return result;
         }
 
-        public Task<StoreLocation> GetOnFilterAsync(Expression<Func<StoreLocation, bool>> filter = null, bool tracked = true)
+        public async Task<List<StoreLocationDTO>> GetListWithSearchAsync(
+            Expression<Func<StoreLocation, bool>> locationFilter = null,
+            string searchString = null,
+            string sortBy = null,
+            int pageNumber = 0,
+            int pageSize = 10)
         {
-            throw new NotImplementedException();
-        }
+            await using var context = await _dbContextFactory.CreateDbContextAsync();
 
-        public Task<StoreLocation> AddAsync(StoreLocation entity)
-        {
-            throw new NotImplementedException();
-        }
+            var storesInArea = await context.StoreLocations
+                .Where(locationFilter)
+                .Select(l => new
+                {
+                    LocationId = l.Id,
+                    City = l.City,
+                    District = l.District,
+                    Address = l.Address,
+                    PostalCode = l.PostalCode,
+                    Stores = l.Stores.Select(s => new
+                    {
+                        StoreId = s.Id,
+                        StoreName = s.Name
+                    }).ToList()
+                }).ToListAsync();
 
-        public Task SaveAsync()
-        {
-            throw new NotImplementedException();
-        }
+            if (!storesInArea.Any())
+                return new List<StoreLocationDTO>();
 
-        public Task<StoreLocation> UpdateAsync(StoreLocation entity)
-        {
-            throw new NotImplementedException();
-        }
+            var storeIds = storesInArea
+                .SelectMany(l => l.Stores)
+                .Select(s => s.StoreId)
+                .ToList();
 
-        public Task DeleteAsync(int id)
-        {
-            throw new NotImplementedException();
-        }
+            var productTasks = storeIds.Select(async storeId =>
+            {
+                var searchTerm = searchString.ToString().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                await using var context = await _dbContextFactory.CreateDbContextAsync();
 
-        public Task<List<StoreLocation>> GetListOnFilterAsync(Expression<Func<StoreLocation, bool>> filter = null, bool tracked = true)
-        {
-            throw new NotImplementedException();
-        }
+                var query = context.Products
+                    .Include(p => p.Categories)
+                        .ThenInclude(c => c.Category)
+                    .Where(p => p.StoreId == storeId);
 
+                foreach (var term in searchTerm)
+                {
+                    query = query.Where(p => p.Name.Contains(term) || p.Brand.Contains(term) || p.CountryOfOrigin.Contains(term));
+                }
+
+                query = sortBy?.ToLowerInvariant() switch
+                {
+                    "lowprice" => query.OrderBy(p => p.CurrentPrice),
+                    "highprice" => query.OrderByDescending(p => p.CurrentPrice),
+                    "lowcompareprice" => query.OrderBy(p => p.CurrentComparePrice),
+                    "highcompareprice" => query.OrderByDescending(p => p.CurrentComparePrice),
+                    "discountcompareprice" => query.OrderBy(p => p.WasDiscount ? 0 : 1).ThenBy(p => p.CurrentComparePrice),
+                    "discountpercentage" => query.OrderByDescending(p => p.DiscountPercentage),
+                    _ => query.OrderBy(p => p.WasDiscount ? 0 : 1).ThenBy(p => p.CurrentPrice)
+                };
+                var products = await query
+                    .Skip(pageNumber * pageSize)
+                    .Take(pageSize)
+                    .AsNoTracking()
+                    .ToListAsync();
+
+                return new { StoreId = storeId, Products = products };
+            }).ToList();
+
+            var results = await Task.WhenAll(productTasks);
+
+            var productsByStore = results
+                .Where(r => r.Products.Any())
+                .ToDictionary(r => r.StoreId, r => r.Products);
+
+            var result = storesInArea.Select(location => new StoreLocationDTO
+            {
+                Id = location.LocationId,
+                City = location.City,
+                District = location.District,
+                Address = location.Address,
+                PostalCode = location.PostalCode,
+                ProductCount = productsByStore.Values.Sum(p => p.Count),
+                Stores = location.Stores.Select(store => new StoreDTO
+                {
+                    Id = store.StoreId,
+                    Name = store.StoreName,
+                    Products = productsByStore.ContainsKey(store.StoreId)
+                        ? productsByStore[store.StoreId].Select(p => new ProductDTO
+                        {
+                            Id = p.Id,
+                            Brand = p.Brand,
+                            ComparePrice = p.ComparePrice,
+                            CountryOfOrigin = p.CountryOfOrigin,
+                            CreatedAt = p.CreatedAt,
+                            CurrentComparePrice = p.CurrentComparePrice,
+                            CurrentPrice = p.CurrentPrice,
+                            DiscountPercentage = p.DiscountPercentage,
+                            ImageUrl = p.ImageUrl,
+                            MaxQuantity = p.MaxQuantity,
+                            MemberDiscount = p.MemberDiscount,
+                            MinQuantity = p.MinQuantity,
+                            Name = p.Name,
+                            OriginalPrice = p.OriginalPrice,
+                            Size = p.Size,
+                            Unit = p.Unit,
+                            UpdatedAt = p.UpdatedAt,
+                            WasDiscount = p.WasDiscount,
+                            Categories = p.Categories.Select(c => new CategoryDTO
+                            {
+                                Id = c.Category.Id,
+                                Name = c.Category.Name
+                            }).ToList(),
+                        }).ToList()
+                        : new List<ProductDTO>()
+                }).ToList()
+            }).ToList();
+            System.Console.WriteLine(productsByStore.Values.Sum(p => p.Count));
+            return result;
+        }
     }
 }

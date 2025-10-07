@@ -7,6 +7,7 @@ namespace PriceWebApi.Models.DTO
         public string City { get; set; }
         public string District { get; set; }
         public int PostalCode { get; set; }
+        public int ProductCount { get; set; }
         public ICollection<StoreDTO> Stores { get; set; }
     }    
 }

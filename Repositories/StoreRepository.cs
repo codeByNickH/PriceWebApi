@@ -8,26 +8,16 @@ namespace PriceWebApi.Repositories
 {
     public class StoreRepository : IRepository<Store>
     {
-        private readonly AppDbContext _dbContext;
-        public StoreRepository(AppDbContext dbContext)
+        
+        public StoreRepository()
         {
-            _dbContext = dbContext;
+
         }
 
         public async Task<List<Store>> GetListOnFilterAsync(Expression<Func<Store, bool>> filter = null, bool tracked = true)
         {
-            IQueryable<Store> products = _dbContext.Stores
-                .Include(x => x.Products);
-            //  .Include(x => x.StoreLocation)
-            if (!tracked == true)
-            {
-                products = products.AsNoTracking();
-            }
-            if (filter != null)
-            {
-                products = products.Where(filter);
-            }
-            return await products.ToListAsync();
+            
+            throw new NotImplementedException();
         }
 
         public Task<Store> GetOnFilterAsync(Expression<Func<Store, bool>> filter = null, bool tracked = true)
