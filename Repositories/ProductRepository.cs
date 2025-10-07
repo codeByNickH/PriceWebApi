@@ -9,15 +9,16 @@ namespace PriceWebApi.Repositories
 {
     public class ProductRepository : IRepository<Product>
     {
-        private readonly AppDbContext _dbContext;
-        public ProductRepository(AppDbContext dbContext)
+        private readonly IDbContextFactory<AppDbContext> _dbContextFactory;
+        public ProductRepository(IDbContextFactory<AppDbContext> dbContextFactory)
         {
-            _dbContext = dbContext;
+            _dbContextFactory = dbContextFactory;
         }
 
         public async Task<List<Product>> GetListOnFilterAsync(Expression<Func<Product, bool>> filter = null, bool tracked = true)
         {
-            IQueryable<Product> products = _dbContext.Products
+            await using var context = await _dbContextFactory.CreateDbContextAsync();
+            IQueryable<Product> products = context.Products
                 .Include(p => p.Store)
                 .Include(p => p.PriceHistory)
                 .Include(p => p.Categories)
@@ -70,7 +71,8 @@ namespace PriceWebApi.Repositories
 
         public async Task<Product> GetOnFilterAsync(Expression<Func<Product, bool>> filter = null, bool tracked = true)
         {
-            IQueryable<Product> products = _dbContext.Products
+            await using var context = await _dbContextFactory.CreateDbContextAsync();
+            IQueryable<Product> products = context.Products
                 .Include(p => p.Store)
                 .Include(p => p.PriceHistory)
                 .Include(p => p.Categories);
