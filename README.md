@@ -209,7 +209,7 @@ This project demonstrates:
 - [ ] Shopping list functionality
 - [ ] User accounts and preferences
 - [ ] Advanced caching
-- [ ] Rate limiting
+- [x] Rate limiting
 - [ ] API versioning
 - [ ] Product image optimization
 
@@ -217,7 +217,6 @@ This project demonstrates:
 - ProductCount in StoreLocationDTO currently sums all stores (needs fix)
 - No authentication enforcement (Azure AD configured but not required)
 - Limited error handling for malformed requests
-- No API rate limiting
 
 ---
 
