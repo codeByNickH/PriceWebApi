@@ -75,7 +75,9 @@ namespace PriceWebApi.Repositories
                 District = location.District,
                 Address = location.Address,
                 PostalCode = location.PostalCode,
-                ProductCount = productsByStore.Values.Sum(p => p.Count),
+                ProductCount = location.Stores
+                    .Where(s => productsByStore.ContainsKey(s.StoreId))
+                    .Sum(s => productsByStore[s.StoreId].Count),
                 Stores = location.Stores.Select(store => new StoreDTO
                 {
                     Id = store.StoreId,
@@ -110,7 +112,7 @@ namespace PriceWebApi.Repositories
                         : new List<ProductDTO>()
                 }).ToList()
             }).ToList();
-            System.Console.WriteLine(productsByStore.Values.Sum(p => p.Count));
+
             return result;
         }
 
@@ -190,7 +192,9 @@ namespace PriceWebApi.Repositories
                 District = location.District,
                 Address = location.Address,
                 PostalCode = location.PostalCode,
-                ProductCount = productsByStore.Values.Sum(p => p.Count),
+                ProductCount = location.Stores
+                    .Where(s => productsByStore.ContainsKey(s.StoreId))
+                    .Sum(s => productsByStore[s.StoreId].Count),
                 Stores = location.Stores.Select(store => new StoreDTO
                 {
                     Id = store.StoreId,
@@ -225,7 +229,7 @@ namespace PriceWebApi.Repositories
                         : new List<ProductDTO>()
                 }).ToList()
             }).ToList();
-            System.Console.WriteLine(productsByStore.Values.Sum(p => p.Count));
+
             return result;
         }
 
@@ -264,7 +268,10 @@ namespace PriceWebApi.Repositories
 
             var productTasks = storeIds.Select(async storeId =>
             {
-                var searchTerm = searchString.ToString().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                var searchTerm = searchString
+                    .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                    .Take(5);
+
                 await using var context = await _dbContextFactory.CreateDbContextAsync();
 
                 var query = context.Products
@@ -274,7 +281,11 @@ namespace PriceWebApi.Repositories
 
                 foreach (var term in searchTerm)
                 {
-                    query = query.Where(p => p.Name.Contains(term) || p.Brand.Contains(term) || p.CountryOfOrigin.Contains(term));
+                    query = query.Where(p =>
+                        (p.Name != null && p.Name.Contains(term)) ||
+                        (p.Brand != null && p.Brand.Contains(term)) ||
+                        (p.CountryOfOrigin != null && p.CountryOfOrigin.Contains(term))
+                    );
                 }
 
                 query = sortBy?.ToLowerInvariant() switch
@@ -309,7 +320,9 @@ namespace PriceWebApi.Repositories
                 District = location.District,
                 Address = location.Address,
                 PostalCode = location.PostalCode,
-                ProductCount = productsByStore.Values.Sum(p => p.Count),
+                ProductCount = location.Stores
+                    .Where(s => productsByStore.ContainsKey(s.StoreId))
+                    .Sum(s => productsByStore[s.StoreId].Count),
                 Stores = location.Stores.Select(store => new StoreDTO
                 {
                     Id = store.StoreId,
@@ -344,7 +357,7 @@ namespace PriceWebApi.Repositories
                         : new List<ProductDTO>()
                 }).ToList()
             }).ToList();
-            System.Console.WriteLine(productsByStore.Values.Sum(p => p.Count));
+
             return result;
         }
     }
