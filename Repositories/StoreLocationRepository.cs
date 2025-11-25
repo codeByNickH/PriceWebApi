@@ -16,6 +16,7 @@ namespace PriceWebApi.Repositories
         }
         public async Task<List<StoreLocationDTO>> GetListOnFilterAndPageAsync(
             Expression<Func<StoreLocation, bool>> locationFilter = null,
+            string sortBy = null,
             int pageNumber = 0,
             int pageSize = 10)
         {
@@ -49,15 +50,26 @@ namespace PriceWebApi.Repositories
            {
                await using var context = await _dbContextFactory.CreateDbContextAsync();
 
-               var products = await context.Products
+               var query = context.Products
                    .Include(p => p.Categories)
                        .ThenInclude(c => c.Category)
-                   .Where(p => p.StoreId == storeId)
-                   .OrderBy(p => p.WasDiscount ? 0 : 1)
-                   .Skip(pageNumber * pageSize)
-                   .Take(pageSize)
-                   .AsNoTracking()
-                   .ToListAsync();
+                   .Where(p => p.StoreId == storeId);
+               query = sortBy?.ToLowerInvariant() switch
+               {
+                   "lowprice" => query.OrderBy(p => p.CurrentPrice),
+                   "highprice" => query.OrderByDescending(p => p.CurrentPrice),
+                   "lowcompareprice" => query.OrderBy(p => p.CurrentComparePrice),
+                   "highcompareprice" => query.OrderByDescending(p => p.CurrentComparePrice),
+                   "discountcompareprice" => query.OrderBy(p => p.WasDiscount ? 0 : 1).ThenBy(p => p.CurrentComparePrice),
+                   "discountpercentage" => query.OrderByDescending(p => p.DiscountPercentage),
+                   _ => query.OrderBy(p => p.WasDiscount ? 0 : 1).ThenBy(p => p.CurrentPrice)
+               };
+
+               var products = await query
+                  .Skip(pageNumber * pageSize)
+                  .Take(pageSize)
+                  .AsNoTracking()
+                  .ToListAsync();
 
                return new { StoreId = storeId, Products = products };
            }).ToList();
@@ -199,6 +211,13 @@ namespace PriceWebApi.Repositories
                 {
                     Id = store.StoreId,
                     Name = store.StoreName,
+                    // City = location.City,            Maybe change to this structure and skip location stage.
+                    // Address = location.Address,
+                    // District = location.District,
+                    // PostalCode = location.PostalCode,
+                    // ProductCount = location.Stores
+                    // .Where(s => productsByStore.ContainsKey(s.StoreId))
+                    // .Sum(s => productsByStore[s.StoreId].Count),
                     Products = productsByStore.ContainsKey(store.StoreId)
                         ? productsByStore[store.StoreId].Select(p => new ProductDTO
                         {

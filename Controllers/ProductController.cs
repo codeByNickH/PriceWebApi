@@ -15,14 +15,17 @@ namespace PriceWebApi.Controllers
     public class ProductController : ControllerBase
     {
         private readonly IStoreLocationRepository _locationRepository;
+        private readonly IStoreRepository _storeRepository;
         private readonly IRepository<Product> _productRepository;
-        public ProductController(IRepository<Product> productRepository, IStoreLocationRepository locationRepository)
+        public ProductController(IRepository<Product> productRepository, IStoreLocationRepository locationRepository, IStoreRepository storeRepository)
         {
             _productRepository = productRepository;
             _locationRepository = locationRepository;
+            _storeRepository = storeRepository;
         }
         [HttpGet("Products")] // First page load + pagination
         public async Task<ActionResult<ApiResponse>> GetProducts(
+            [FromQuery] string sortBy = "default",
             [FromQuery] string city = null,
             [FromQuery] string district = null,
             [FromQuery] int page = 0,
@@ -48,10 +51,11 @@ namespace PriceWebApi.Controllers
                 return BadRequest("Invalid location, city must be provided.");
             }
 
-            return ResponseExtension.CreateApiResponse(await _locationRepository.GetListOnFilterAndPageAsync(locationFilter, page, pageSize));
+            return ResponseExtension.CreateApiResponse(await _locationRepository.GetListOnFilterAndPageAsync(locationFilter, sortBy, page, pageSize));
         }
-        [HttpGet("Products/{productId}")] // Click on product to get more info
-        public async Task<ActionResult<ApiResponse>> GetSingleProduct(int productId)
+        [HttpGet("ID")] // Click on product to get more info
+        public async Task<ActionResult<ApiResponse>> GetSingleProduct(
+            [FromQuery] int productId = 0)
         {
             return ResponseExtension.CreateApiResponse(await _productRepository.GetOnFilterAsync(x => x.Id == productId));
         }
@@ -92,10 +96,10 @@ namespace PriceWebApi.Controllers
 
             return ResponseExtension.CreateApiResponse(await _locationRepository.GetListWithSearchAsync(locationFilter, searchTerm, sortBy, page, pageSize));
         }
-        [HttpGet("Categories/{category}")] // Products in a category
+        [HttpGet("Categories/")] // Products in a category
         public async Task<ActionResult<ApiResponse>> GetProductsByCategory(
-            string category = null, // Change to Id?
-            [FromQuery] string sortBy = "discountLowest",
+            [FromQuery] string category = null, // Change to Id?
+            [FromQuery] string sortBy = "default",
             [FromQuery] string city = null,
             [FromQuery] string district = null,
             [FromQuery] int page = 0,
@@ -124,7 +128,32 @@ namespace PriceWebApi.Controllers
 
             return ResponseExtension.CreateApiResponse(await _locationRepository.GetListWithFilterAsync(locationFilter, productFilter, sortBy, page, pageSize));
         }
+        [HttpGet("Store/")]
+        public async Task<ActionResult<ApiResponse>> GetProductsByStore(
+            [FromQuery] string category = null, // Change to Id?
+            [FromQuery] string sortBy = "default",
+            [FromQuery] int? storeId = 0,
+            [FromQuery] int page = 0,
+            [FromQuery] int pageSize = 10)
+        {
+            if (string.IsNullOrEmpty(category))
+            {
+                return BadRequest("Category parameter is required.");
+            }
+            if (pageSize < 1 || pageSize > 30)
+            {
+                return BadRequest("Page size must be between 1 and 30");
+            }
 
+            Expression<Func<Product, bool>> productFilter = CreateProductFilter("category", category);
+
+            if (!storeId.HasValue)
+            {
+                return BadRequest("Store Id must be provided.");
+            }
+
+            return ResponseExtension.CreateApiResponse(await _storeRepository.GetSingleStoreListWithFilterAsync(storeId, productFilter, sortBy, page, pageSize));
+        }
         private Expression<Func<StoreLocation, bool>> CreateLocationFilter(string city, string district)
         {
             if (!string.IsNullOrEmpty(city) && !string.IsNullOrEmpty(district))
