@@ -69,14 +69,16 @@ namespace PriceWebApi.Repositories
             }).ToListAsync();
         }
 
-        public async Task<Product> GetOnFilterAsync(Expression<Func<Product, bool>> filter = null, bool tracked = true)
+
+        // Check this, only use is query on single product id
+        public async Task<Product> GetOnFilterAsync(Expression<Func<Product, bool>> filter = null, bool tracked = false)
         {
             await using var context = await _dbContextFactory.CreateDbContextAsync();
             IQueryable<Product> products = context.Products
                 .Include(p => p.Store)
                 .Include(p => p.PriceHistory)
                 .Include(p => p.Categories);
-            if (!tracked == true)
+            if (!tracked)
             {
                 products = products.AsNoTracking();
             }
@@ -119,6 +121,7 @@ namespace PriceWebApi.Repositories
                     .OrderByDescending(ph => ph.RecordedAt)
                     .Select(p => new PriceHistory
                     {
+                        Id = p.Id,
                         ProductId = p.ProductId,
                         Price = p.Price,
                         ComparePrice = p.ComparePrice,

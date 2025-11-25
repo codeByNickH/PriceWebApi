@@ -83,28 +83,30 @@ PriceWebApi/
 
 ### Get Products (First Load)
 ```http
-GET /api/Product/GetProducts?city={city}&district={district}&page={page}
+GET /api/Product/Products?sortBy={sort}&city={city}&district={district}&page={page}&pageSize={size}
 ```
 Returns paginated products from stores in the specified location.
 
 **Parameters:**
+- `sortBy` (default: "default"): Sort option
 - `city` (required): City name
 - `district` (optional): District/neighborhood
 - `page` (default: 0): Page number for pagination
+- `pageSize` (default: 10, min: 1, max: 30): Page size for number of products per store
 
 ### Search Products
 ```http
-GET /api/Product/GetProductsBySearch?searchTerm={term}&filterType={type}&sortBy={sort}&city={city}&page={page}
+GET /api/Product/Search?searchTerm={term}&sortBy={sort}&city={city}&page={page}&pageSize={size}
 ```
 Search for products with advanced filtering and sorting.
 
 **Parameters:**
 - `searchTerm` (required): Search query
-- `filterType` (default: "textsearch"): Filter type - `textsearch`, `category`, `country`
-- `sortBy` (default: "discountLowest"): Sort option
+- `sortBy` (default: "default"): Sort option
 - `city` (required): City name
 - `district` (optional): District name
 - `page` (default: 0): Page number
+- `pageSize` (default: 10, min: 1, max: 30): Page size for number of products per store
 
 **Sort Options:**
 - `lowprice` - Lowest price first
@@ -113,16 +115,23 @@ Search for products with advanced filtering and sorting.
 - `highcompareprice` - Highest unit price first
 - `discountcompareprice` - Discounts first, then by unit price
 - `discountpercentage` - Highest discount percentage first
+- `default` - Discount lowest price first, then by lowest price
 
 ### Get Products by Category
 ```http
-GET /api/Product/GetProductsByCategory?category={category}&sortBy={sort}&city={city}&page={page}
+GET /api/Product/Categories?category={category}&sortBy={sort}&city={city}&page={page}&pageSize={size}
 ```
 Filter products by category with sorting options.
 
+### Get Products for Pagination
+```http
+GET /api/Product/Store?category={category}&sortBy={sort}&storeId={id}&page={page}&pageSize={size}
+```
+Filter products from one store by category with sorting options.
+
 ### Get Single Product
 ```http
-GET /api/Product/GetSingleProduct?productId={id}
+GET /api/Product/ID?productId={id}
 ```
 Retrieve detailed information for a specific product including price history.
 
@@ -214,7 +223,6 @@ This project demonstrates:
 - [ ] Product image optimization
 
 ### Known Limitations
-- ProductCount in StoreLocationDTO currently sums all stores (needs fix)
 - No authentication enforcement (Azure AD configured but not required)
 - Limited error handling for malformed requests
 
