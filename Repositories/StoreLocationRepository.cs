@@ -60,7 +60,7 @@ namespace PriceWebApi.Repositories
                    "highprice" => query.OrderByDescending(p => p.CurrentPrice),
                    "lowcompareprice" => query.OrderBy(p => p.CurrentComparePrice),
                    "highcompareprice" => query.OrderByDescending(p => p.CurrentComparePrice),
-                   "discountcompareprice" => query.OrderBy(p => p.WasDiscount ? 0 : 1).ThenBy(p => p.CurrentComparePrice),
+                   "discountcompareprice" => query.OrderBy(p => p.WasDiscount ? 0 : 1).ThenBy(p => p.CurrentComparePrice), // Check this 
                    "discountpercentage" => query.OrderByDescending(p => p.DiscountPercentage),
                    _ => query.OrderBy(p => p.WasDiscount ? 0 : 1).ThenBy(p => p.CurrentPrice)
                };

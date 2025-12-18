@@ -39,9 +39,9 @@ namespace PriceWebApi.Controllers
             {
                 return BadRequest("Page number parameter is required and must be 0 or greater.");
             }
-            if (pageSize < 1 || pageSize > 30)
+            if (pageSize < 10 || pageSize > 30)
             {
-                return BadRequest("Page size must be between 1 and 30");
+                return BadRequest("Page size must be between 10 and 30");
             }
 
             Expression<Func<StoreLocation, bool>> locationFilter = CreateLocationFilter(city, district);
@@ -82,9 +82,9 @@ namespace PriceWebApi.Controllers
             {
                 return BadRequest("Page number parameter is required and must be 0 or greater.");
             }
-            if (pageSize < 1 || pageSize > 30)
+            if (pageSize < 10 || pageSize > 30)
             {
-                return BadRequest("Page size must be between 1 and 30");
+                return BadRequest("Page size must be between 10 and 30");
             }
 
             Expression<Func<StoreLocation, bool>> locationFilter = CreateLocationFilter(city, district);
@@ -113,9 +113,9 @@ namespace PriceWebApi.Controllers
             {
                 return BadRequest("Page number parameter is required and must be 0 or greater.");
             }
-            if (pageSize < 1 || pageSize > 30)
+            if (pageSize < 10 || pageSize > 30)
             {
-                return BadRequest("Page size must be between 1 and 30");
+                return BadRequest("Page size must be between 10 and 30");
             }
 
             Expression<Func<StoreLocation, bool>> locationFilter = CreateLocationFilter(city, district);
@@ -140,9 +140,9 @@ namespace PriceWebApi.Controllers
             {
                 return BadRequest("Category parameter is required.");
             }
-            if (pageSize < 1 || pageSize > 30)
+            if (pageSize < 10 || pageSize > 30)
             {
-                return BadRequest("Page size must be between 1 and 30");
+                return BadRequest("Page size must be between 10 and 30");
             }
 
             Expression<Func<Product, bool>> productFilter = CreateProductFilter("category", category);
@@ -153,6 +153,49 @@ namespace PriceWebApi.Controllers
             }
 
             return ResponseExtension.CreateApiResponse(await _storeRepository.GetSingleStoreListWithFilterAsync(storeId, productFilter, sortBy, page, pageSize));
+        }
+        [HttpGet("Store/Search")]
+        public async Task<ActionResult<ApiResponse>> GetProductsByStoreSearch(
+            [FromQuery] string searchTerm = null,
+            [FromQuery] string sortBy = "default",
+            [FromQuery] int? storeId = 0,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10)
+        {
+            if (string.IsNullOrEmpty(searchTerm))
+            {
+                return BadRequest("Search term is required.");
+            }
+            if (pageSize < 10 || pageSize > 30)
+            {
+                return BadRequest("Page size must be between 10 and 30");
+            }
+
+            if (!storeId.HasValue)
+            {
+                return BadRequest("Store Id must be provided.");
+            }
+
+            return ResponseExtension.CreateApiResponse(await _storeRepository.GetSingleStoreListWithSearchAsync(storeId, searchTerm, sortBy, page, pageSize));
+        }
+        [HttpGet("Store/Products")]
+        public async Task<ActionResult<ApiResponse>> GetProductsByStore(
+            [FromQuery] string sortBy = "default",
+            [FromQuery] int? storeId = 0,
+            [FromQuery] int page = 0,
+            [FromQuery] int pageSize = 10)
+        {
+            if (pageSize < 10 || pageSize > 30)
+            {
+                return BadRequest("Page size must be between 10 and 30");
+            }
+
+            if (!storeId.HasValue)
+            {
+                return BadRequest("Store Id must be provided.");
+            }
+
+            return ResponseExtension.CreateApiResponse(await _storeRepository.GetSingleStoreListFirstPageAsync(storeId, sortBy, page, pageSize));
         }
         private Expression<Func<StoreLocation, bool>> CreateLocationFilter(string city, string district)
         {
