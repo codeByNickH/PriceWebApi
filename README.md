@@ -81,7 +81,7 @@ PriceWebApi/
 
 ## API Endpoints
 
-### Get Products (First Load)
+### Get Products (First Page)
 ```http
 GET /api/Product/Products?sortBy={sort}&city={city}&district={district}&page={page}&pageSize={size}
 ```
@@ -92,7 +92,19 @@ Returns paginated products from stores in the specified location.
 - `city` (required): City name
 - `district` (optional): District/neighborhood
 - `page` (default: 0): Page number for pagination
-- `pageSize` (default: 10, min: 1, max: 30): Page size for number of products per store
+- `pageSize` (default: 10, min: 10, max: 30): Page size for number of products per store
+
+### Get Products By Store (First Page Pagination)
+```http
+GET /api/Product/Store/Products?sortBy={sort}&storeId{storeId}&page={page}&pageSize={size}
+```
+Returns paginated products from single store in the specified location.
+
+**Parameters:**
+- `sortBy` (default: "default"): Sort option
+- `storeId` (required): Store ID
+- `page` (default: 1): Page number for pagination
+- `pageSize` (default: 10, min: 10, max: 30): Page size for number of products per store
 
 ### Search Products
 ```http
@@ -106,7 +118,47 @@ Search for products with advanced filtering and sorting.
 - `city` (required): City name
 - `district` (optional): District name
 - `page` (default: 0): Page number
-- `pageSize` (default: 10, min: 1, max: 30): Page size for number of products per store
+- `pageSize` (default: 10, min: 10, max: 30): Page size for number of products per store
+
+### Search Products (Pagination)
+```http
+GET /api/Product/Store/Search?searchTerm={term}&sortBy={sort}&storeId={storeId}&page={page}&pageSize={size}
+```
+Pagination for Search of products with advanced filtering and sorting.
+
+**Parameters:**
+- `searchTerm` (required): Search query
+- `sortBy` (default: "default"): Sort option
+- `storeId` (required): Store ID
+- `page` (default: 1): Page number
+- `pageSize` (default: 10, min: 10, max: 30): Page size for number of products per store
+
+### Get Products by Category
+```http
+GET /api/Product/Categories?category={category}&sortBy={sort}&city={city}&page={page}&pageSize={size}
+```
+Filter products by category with sorting options.
+
+**Parameters:**
+- `category` (required): Product Category
+- `sortBy` (default: "default"): Sort option
+- `city` (required): City name
+- `district` (optional): District name
+- `page` (default: 0): Page number
+- `pageSize` (default: 10, min: 10, max: 30): Page size for number of products per store
+
+### Get Products for Pagination
+```http
+GET /api/Product/Store?category={category}&sortBy={sort}&storeId={id}&page={page}&pageSize={size}
+```
+Filter products from one store by category with sorting options.
+
+**Parameters:**
+- `category` (required): Product Category
+- `sortBy` (default: "default"): Sort option
+- `storeId` (required): Store ID
+- `page` (default: 1): Page number
+- `pageSize` (default: 10, min: 10, max: 30): Page size for number of products per store
 
 **Sort Options:**
 - `lowprice` - Lowest price first
@@ -116,18 +168,6 @@ Search for products with advanced filtering and sorting.
 - `discountcompareprice` - Discounts first, then by unit price
 - `discountpercentage` - Highest discount percentage first
 - `default` - Discount lowest price first, then by lowest price
-
-### Get Products by Category
-```http
-GET /api/Product/Categories?category={category}&sortBy={sort}&city={city}&page={page}&pageSize={size}
-```
-Filter products by category with sorting options.
-
-### Get Products for Pagination
-```http
-GET /api/Product/Store?category={category}&sortBy={sort}&storeId={id}&page={page}&pageSize={size}
-```
-Filter products from one store by category with sorting options.
 
 ### Get Single Product
 ```http
